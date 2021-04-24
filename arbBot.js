@@ -1,4 +1,4 @@
-// Main  main Arb bot that is checking for an Arb opportunity between the two UniSwap pools. If an opportunity is found FlashLoanArb function calls the FlashLoan.
+// Main Arb bot that is checking for an Arb opportunity between the two UniSwap pools. If an opportunity is found FlashLoanArb function calls the FlashLoan.
 // Also a Web3 only method that executes trades directly.
 const Web3 = require("web3");
 const fs = require('fs');
@@ -14,18 +14,18 @@ require('dotenv').config();
 
 let data, output;
 
-TRADELIVE = false;                                                        // Change this to true to execute trades
+TRADELIVE = false; // Change this to true to execute trades
 
 BigNumber.set({ DECIMAL_PLACES: 18});
 
 const TRADER_ACCOUNT = '0xeE398666cA860DFb7390b5D73EE927e9Fb41a60A';
 const DAI_ADDRESS = '0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD';
 
-let id, DaiTokenInstance, UniSwapFactoryInstance, UniSwapExchangeInstance, leaderExchangeAddr, followerExchangeAddr;
+let DaiTokenInstance, UniSwapFactoryInstance, UniSwapExchangeInstance, leaderExchangeAddr, followerExchangeAddr;
 
 const web3 = new Web3(new Web3.providers.HttpProvider(process.env.INFURAKOVAN));
 
-async function run(){
+async function run() {
   // Main function that will run and check for Arb op
   var id = await web3.eth.net.getId();
 
@@ -33,17 +33,16 @@ async function run(){
   UniSwapFactoryInstance = new web3.eth.Contract(UniSwapFactory.abi, UniSwapFactory.networks[id].address);
   UniSwapExchangeInstance = new web3.eth.Contract(UniSwapExchange.abi, UniSwapExchange.networks[id].address);
 
-  leaderExchangeAddr = await UniSwapFactoryInstance.methods.getExchange(0).call();                                      // Using custom UniSwap contracts
+  leaderExchangeAddr = await UniSwapFactoryInstance.methods.getExchange(0).call(); // Using custom UniSwap contracts
   followerExchangeAddr = await UniSwapFactoryInstance.methods.getExchange(1).call();
 
-  console.log(leaderExchangeAddr);
-  console.log(followerExchangeAddr);
+  console.log('Leader exchange address:', leaderExchangeAddr);
+  console.log('Follower exchange address:', followerExchangeAddr);
 
   var followerBalanceWei = await DaiTokenInstance.methods.balanceOf(TRADER_ACCOUNT).call();
-
   console.log('Your DAI Balance: ' + web3.utils.fromWei(followerBalanceWei.toString(10), 'ether'));
 
-  while(true){
+  while(true) {
     console.log('\nChecking For Arb Op...');
     var ethBalance = await web3.eth.getBalance(TRADER_ACCOUNT);
     console.log('Balance Eth: ' + web3.utils.fromWei(ethBalance.toString(10), 'ether'));
@@ -67,10 +66,9 @@ async function run(){
     var maxCheck = new BigNumber(10);
     var diviser = new BigNumber(10);
     var divisionCount = 0;
-    var divisionMax = 10;    // Each division divides ethSpend by 10. So this would be 0.00001.
+    var divisionMax = 10; // Each division divides ethSpend by 10. So this would be 0.00001.
 
-    while(true){
-
+    while(true) {
       var trade = [];
       ethSpend = ethSpend.plus(spendCheck);
 
@@ -79,12 +77,12 @@ async function run(){
         break;
       }
 
-      let ethSpendWei = web3.utils.toWei(ethSpend.toString(10), 'ether');                                    // Amount of Eth that will be spent on trade
+      let ethSpendWei = web3.utils.toWei(ethSpend.toString(10), 'ether'); // Amount of Eth that will be spent on trade
 
       //profit = await CalculateProfit(ethSpendWei, followerExTokenBalanceWei, followerExEthBalanceWei, leaderExEthBalanceWei, leaderExTokenBalanceWei, trade)
-      profit = await CalculateProfit(ethSpendWei, leaderExEthBalanceWei, leaderExTokenBalanceWei, followerExTokenBalanceWei, followerExEthBalanceWei, trade)    // Checks if it's possible to make a profit
+      profit = await CalculateProfit(ethSpendWei, leaderExEthBalanceWei, leaderExTokenBalanceWei, followerExTokenBalanceWei, followerExEthBalanceWei, trade); // Checks if it's possible to make a profit
 
-      if(profit.profit.isGreaterThan(maxProfit)){
+      if (profit.profit.isGreaterThan(maxProfit)) {
         trade.push('New max profit');
         trades.push(trade);
         maxProfit = profit.profit;
@@ -94,8 +92,8 @@ async function run(){
         continue;
       }
 
-      if(profit.profit.isNegative()){
-        if(divisionCount < divisionMax){
+      if (profit.profit.isNegative()) {
+        if (divisionCount < divisionMax) {
           trade.push('No Profit');
           trades.push(trade);
           divisionCount++;
@@ -109,7 +107,7 @@ async function run(){
         continue;
       }
 
-      if(profit.firstEffectivePrice.effectivePriceBN.gt(profit.secondEffectivePrice.effectivePriceBN)){
+      if (profit.firstEffectivePrice.effectivePriceBN.gt(profit.secondEffectivePrice.effectivePriceBN)) {
         trade.push("Profits");
         continue;
         // console.log('????')
@@ -126,7 +124,7 @@ async function run(){
     output = table(trades);
     console.log(output);
 
-    if(maxProfitSpend == 0){
+    if (maxProfitSpend == 0) {
       console.log('No Arb Op.');
       console.log('--------------------------------------------');
       await sleep(6000);
@@ -134,12 +132,11 @@ async function run(){
     }
 
     console.log('\n******** Arb Op ***********');
-    // Web3Arb(maxProfit, maxProfitSpend, tokensToBuy);                         // This executes UniSwap swaps using web3.
-    await FlashLoanArb(maxProfit, maxProfitSpend)                               // This executes via FlashLoan contract.
+    // Web3Arb(maxProfit, maxProfitSpend, tokensToBuy); // This executes UniSwap swaps using web3.
+    await FlashLoanArb(maxProfit, maxProfitSpend); // This executes via FlashLoan contract.
 
     console.log('*****************************')
     console.log('--------------------------------------------');
-
   }
 }
 
@@ -148,19 +145,19 @@ async function FlashLoanArb(maxProfit, maxProfitSpend){
   console.log(maxProfit.toString(10))
   console.log('Max Profit at: ' + maxProfitSpend + ' ' + web3.utils.fromWei(maxProfit.toString(10), 'ether'));
 
-  /// Retrieve the LendingPool address
+  // Retrieve the LendingPool address
   const LendingPoolAddressesProviderInstance = new web3.eth.Contract(LendingPoolAddressesProvider.abi, '0x9C6C63aA0cD4557d7aE6D9306C06C093A2e35408');
   const lendingPool = await LendingPoolAddressesProviderInstance.methods.getLendingPool().call();
 
   const LendingPoolInstance = new web3.eth.Contract(LendingPool.abi, lendingPool);
 
-  var receiverContract = '0x1ED5840AB41D578584232C13314de1d73B2F5CC3';    // Kovan deployed of FlashLoanReceiverArb.sol
-  var reserveAddr = '0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD';         // This is the DAI address and it is confirmed as working
+  var receiverContract = '0x1ED5840AB41D578584232C13314de1d73B2F5CC3'; // Kovan deployed of FlashLoanReceiverArb.sol
+  var reserveAddr = '0xFf795577d9AC8bD7D90Ee22b6C1703490b6512FD'; // This is the DAI address and it is confirmed as working
   var loanAmountWei = web3.utils.toWei(maxProfitSpend.toString(), 'ether');
 
   const reserveData = await LendingPoolInstance.methods.getReserveData(reserveAddr).call();
   console.log('Reserve Data: ');
-  console.log(reserveData);                                             // This shows amount in provider.
+  console.log(reserveData); // This shows amount in provider.
 
   console.log('FlashLoan Arb');
   console.log('Creating tx');
@@ -203,7 +200,7 @@ async function Web3Arb(maxProfit, maxProfitSpend, tokensToBuy){
 
   var tx = await followerContract.methods.ethToTokenSwapInput(minTokensWei, DEADLINE);
   if(TRADELIVE)
-    await Util.sendTransactionWithValue(web3, tx, TRADER_ACCOUNT, process.env.PRIVATEKEY, followerExchangeAddr, ethSpendWei);    // Would be good to get return value here as its should be actual amount of tokens bought
+    await Util.sendTransactionWithValue(web3, tx, TRADER_ACCOUNT, process.env.PRIVATEKEY, followerExchangeAddr, ethSpendWei); // Would be good to get return value here as its should be actual amount of tokens bought
 
   var traderFollowerBalanceEnd = await DaiTokenInstance.methods.balanceOf(TRADER_ACCOUNT).call();
   var traderFollowerBalanceEndBN = new BigNumber(traderFollowerBalanceEnd.toString(10));
